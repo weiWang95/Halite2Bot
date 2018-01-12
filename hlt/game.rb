@@ -31,6 +31,12 @@ class Game
     SPAWN_RADIUS = 2.0
 
     ATTACK_RANGE = 5
+
+    MAX_ALLOW_WANT_DOCK_DISTANCE = 50
+    # cordon range
+    CORDON_DISTANCE = 20
+    
+    DEFENCE_DISTANCE = 30
   end
 
   attr_reader :name, :logger, :map

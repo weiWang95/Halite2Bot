@@ -22,6 +22,7 @@ class Planet < Entity
     @docking_spots = docking_spots
     @docked_ship_ids = docked_ship_ids
     @docked_ships = {}
+    @want_dock = []
   end
 
   # Return the docked ship designated by its id.
@@ -29,6 +30,14 @@ class Planet < Entity
   # return: the Ship object representing that ID or nil if not docked.
   def docked_ship(ship_id)
     @docked_ships[ship_id]
+  end
+
+  def docked_ships
+    @docked_ships.values
+  end
+
+  def undock_ships
+    docked_ships.map(&:undock)
   end
 
   # Determines if the planet has an owner.
@@ -49,6 +58,18 @@ class Planet < Entity
 
   def unfull?
     !full?
+  end
+
+  def will_full?
+    full? || @docked_ship_ids.size + @want_dock.size >= docking_spots
+  end
+
+  def unwill_full?
+    !will_full?
+  end
+
+  def receive_ship(ship)
+    @want_dock << ship
   end
 
   # Use the known owner id and ship ids to populate the docked_ships and owner

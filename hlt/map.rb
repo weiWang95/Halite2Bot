@@ -57,6 +57,16 @@ class Map
     (players - [me]).map(&:ships).flatten
   end
 
+  def dangerous_enemy_ships(planet, distance=Game::Constants::CORDON_DISTANCE)
+    enemy_ships.select { |ship| planet.calculate_distance_between(ship) <= distance }
+      .sort! { |ship| planet.calculate_distance_between(ship) }
+  end
+
+  def can_defence_ships(planet, distance=Game::Constants::DEFENCE_DISTANCE)
+    me.idle_ships.select { |ship| planet.calculate_distance_between(ship) <= distance }
+      .sort! { |ship| planet.calculate_distance_between(ship) }
+  end
+
   # Fetch a planet by ID
   # id: the ID of the desired planet
   # return: a Planet
@@ -66,6 +76,10 @@ class Map
 
   def ships
     players.map(&:ships).flatten
+  end
+
+  def enemy_haste?(distance=Game::Constants::CORDON_DISTANCE)
+    enemy_ships.all? { |enemy_ship| me.ships.all? { |ship| ship.calculate_distance_between(enemy_ship) <= distance } }
   end
 
   def update(input)
@@ -113,7 +127,10 @@ class Map
   end
 
   def nearest_unowned_planet(entity)
-    unowned_planets.min{ |one, other| entity.calculate_distance_between(one) <=> entity.calculate_distance_between(other) }
+    unowned_planets.select(&:unwill_full?).min do |one, other|
+      entity.calculate_distance_between(one) / (one.docking_spots * 0.2) <=> entity.calculate_distance_between(other) / (one.docking_spots * 0.2)
+
+    end
   end
 
   def nearest_enemy_planet(entity)
@@ -125,11 +142,13 @@ class Map
   end
 
   def nearest_enemy_docked_ship(entity)
-    enemy_ships.select(&:dock_status?).min{ |one, other| entity.calculate_distance_between(one) <=> entity.calculate_distance_between(other) }
+    enemy_ships.select(&:dock_status?)
+      .min{ |one, other| entity.calculate_distance_between(one) <=> entity.calculate_distance_between(other) }
   end
 
   def nearest_own_unfull_planet(entity)
-    own_planets.select(&:unfull?).min{ |one, other| entity.calculate_distance_between(one) <=> entity.calculate_distance_between(other) }
+    own_planets.select(&:unwill_full?)
+      .min{ |one, other| entity.calculate_distance_between(one) <=> entity.calculate_distance_between(other) }
   end
 
   private

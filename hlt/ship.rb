@@ -32,12 +32,21 @@ class Ship < Entity
     @docking_status = status
     @docking_progress = progress
     @planet = planet if @docking_status != DockingStatus::UNDOCKED
+    @idle = true
   end
 
   %w[undocked docking docked undocking].each do |name|
     define_method "#{name}?" do
       @docking_status == DockingStatus.const_get(name.upcase)
     end
+  end
+
+  def idle?
+    undocked? && @idle
+  end
+
+  def keep_busy
+    @idle = false
   end
 
   def dock_status?
@@ -73,6 +82,8 @@ class Ship < Entity
   end
 
   def want_dock_planet(map, planet)
+    keep_busy
+    planet.receive_ship(self)
     if can_dock?(planet)
       dock(planet)
     else
@@ -82,6 +93,7 @@ class Ship < Entity
   end
 
   def want_attack_enemy(map, enemy_ship)
+    keep_busy
     closest = closest_point_to(enemy_ship)
     navigate(closest, map, Game::Constants::MAX_SPEED)
   end

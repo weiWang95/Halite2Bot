@@ -12,6 +12,10 @@ class Player
     @ships.values
   end
 
+  def idle_ships
+    @ships.values.select(&:idle?)
+  end
+
   def ship(ship_id)
     @ships[ship_id]
   end
