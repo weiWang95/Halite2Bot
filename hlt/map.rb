@@ -79,7 +79,8 @@ class Map
   end
 
   def enemy_haste?(distance=Game::Constants::CORDON_DISTANCE)
-    enemy_ships.all? { |enemy_ship| me.ships.all? { |ship| ship.calculate_distance_between(enemy_ship) <= distance } }
+    enemy_ships.size == 3 && 
+      enemy_ships.all? { |enemy_ship| me.ships.all? { |ship| ship.calculate_distance_between(enemy_ship) <= distance } }
   end
 
   def update(input)
@@ -128,7 +129,7 @@ class Map
 
   def nearest_unowned_planet(entity)
     unowned_planets.select(&:unwill_full?).min do |one, other|
-      entity.calculate_distance_between(one) / (one.docking_spots * 0.2) <=> entity.calculate_distance_between(other) / (one.docking_spots * 0.2)
+      entity.calculate_distance_between(one) * 5 / one.docking_spots <=> entity.calculate_distance_between(other) * 5 / one.docking_spots 
 
     end
   end
@@ -138,7 +139,8 @@ class Map
   end
 
   def nearest_enemy_ship(entity)
-    enemy_ships.min{ |one, other| entity.calculate_distance_between(one) <=> entity.calculate_distance_between(other) }
+    enemy_ships.select(&:unattacked?)
+      .min{ |one, other| entity.calculate_distance_between(one) <=> entity.calculate_distance_between(other) }
   end
 
   def nearest_enemy_docked_ship(entity)

@@ -12,6 +12,10 @@ class Player
     @ships.values
   end
 
+  def docked_ships
+    @ships.values.select(&:dock_status?)
+  end
+
   def idle_ships
     @ships.values.select(&:idle?)
   end

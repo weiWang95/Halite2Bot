@@ -6,7 +6,10 @@ end
 
 class Object
   def blank?
-    nil? || empty?
+    return true if nil?
+    return empty? if respond_to? :empty?
+    return self == '' if is_a? String
+    false
   end
 
   def present?

@@ -33,6 +33,8 @@ class Ship < Entity
     @docking_progress = progress
     @planet = planet if @docking_status != DockingStatus::UNDOCKED
     @idle = true
+    @attacker = nil
+    @want_attack_enemy = nil
   end
 
   %w[undocked docking docked undocking].each do |name|
@@ -94,8 +96,35 @@ class Ship < Entity
 
   def want_attack_enemy(map, enemy_ship)
     keep_busy
-    closest = closest_point_to(enemy_ship)
-    navigate(closest, map, Game::Constants::MAX_SPEED)
+    attack_receiver(enemy_ship)
+    enemy_ship.attacker(self)
+    if undocked?
+      closest = closest_point_to(enemy_ship)
+      navigate(closest, map, Game::Constants::MAX_SPEED)
+    else
+      undock
+    end
+  end
+
+  def attack_receiver(enemy)
+    @want_attack_enemy = enemy
+  end
+
+  def attacker(enemy)
+    @attacker = enemy
+  end
+
+  def attacked?
+    @attacker.present?
+  end
+
+  def unattacked?
+    @attacker.blank?
+  end
+
+  def aggregate(map, position)
+    keep_busy
+    navigate(position, map, Game::Constants::MAX_SPEED)
   end
 
   # Move a ship to a specific target position (Entity).

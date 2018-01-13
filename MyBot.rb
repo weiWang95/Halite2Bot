@@ -26,44 +26,50 @@ while true
   # Update the map for the new turn and get the latest version
   game.update_map
   map = game.map
+  me = map.me
 
   # Here we define the set of commands to be sent to the Halite engine at the
   # end of the turn
   command_queue = []
 
   # check own planet safety
-  planets = map.own_planets
+  if map.enemy_haste?
+    enemy_ships = map.enemy_ships
+    if me.ships.all?(&:undocked?)
+      me.ships.each do |ship|
+        command_queue << ship.want_attack_enemy(map, enemy_ships.first)
+      end
+    else
+      docked_ships = me.docked_ships
+      ship = if docked_ships.present?
+               command_queue += docked_ships.map(&:undock)
+               docked_ships.sample
+             else
+               me.ships.sample
+             end
+      position = Position.new(ship.x, ship.y)
+      me.idle_ships.each do |ship|
+        command_queue << ship.aggregate(position, map)
+      end
+    end
+  end
 
-  planets.each do |planet|
+  # planet defence
+  map.own_planets.each do |planet|
     enemy_ships = map.dangerous_enemy_ships(planet)
     next if enemy_ships.blank?
 
     defence_ships = map.can_defence_ships(planet)
-
     if defence_ships.present?
-      defence_ships.each do |ship|
+      defence_ships[0, enemy_ships.size].each do |ship|
         command_queue << ship.want_attack_enemy(map, enemy_ships.first)
       end
-      if defence_ships.size < enemy_ships.size
-        planet.docked_ships[0, enemy_ships.size - defence_ships.size].each do |ship|
-          command_queue << ship.undock
-        end
-      end
       next
-    end
-    
-    planet.undock_ships.each { |command| command_queue << command }
-  end
-
-  if planets.blank? && map.enemy_haste?
-    enemy_ships = map.enemy_ships
-    me.ships.each do |ship|
-      command_queue << ship.want_attack_enemy(map, enemy_ships.first)
     end
   end
 
   # For each idle ship we control
-  map.me.idle_ships.each do |ship|
+  me.idle_ships.each do |ship|
 
     unowned_planet = map.nearest_unowned_planet(ship)
     if unowned_planet && ship.calculate_distance_between(unowned_planet) <= Game::Constants::MAX_ALLOW_WANT_DOCK_DISTANCE

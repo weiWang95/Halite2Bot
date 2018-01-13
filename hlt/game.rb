@@ -36,7 +36,7 @@ class Game
     # cordon range
     CORDON_DISTANCE = 20
     
-    DEFENCE_DISTANCE = 30
+    DEFENCE_DISTANCE = 40
   end
 
   attr_reader :name, :logger, :map
