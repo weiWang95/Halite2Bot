@@ -68,6 +68,10 @@ class Planet < Entity
     !will_full?
   end
 
+  def spots_size
+    @docking_spots - @docked_ship_ids.size - @want_dock.size
+  end
+
   def receive_ship(ship)
     @want_dock << ship
   end

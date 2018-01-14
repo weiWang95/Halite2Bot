@@ -58,7 +58,7 @@ class Map
   end
 
   def dangerous_enemy_ships(planet, distance=Game::Constants::CORDON_DISTANCE)
-    enemy_ships.select { |ship| planet.calculate_distance_between(ship) <= distance }
+    enemy_ships.select { |ship| ship.undocked? && planet.calculate_distance_between(ship) <= distance }
       .sort! { |ship| planet.calculate_distance_between(ship) }
   end
 
@@ -76,11 +76,6 @@ class Map
 
   def ships
     players.map(&:ships).flatten
-  end
-
-  def enemy_haste?(distance=Game::Constants::CORDON_DISTANCE)
-    enemy_ships.size == 3 && 
-      enemy_ships.all? { |enemy_ship| me.ships.all? { |ship| ship.calculate_distance_between(enemy_ship) <= distance } }
   end
 
   def update(input)
@@ -130,7 +125,6 @@ class Map
   def nearest_unowned_planet(entity)
     unowned_planets.select(&:unwill_full?).min do |one, other|
       entity.calculate_distance_between(one) * 5 / one.docking_spots <=> entity.calculate_distance_between(other) * 5 / one.docking_spots 
-
     end
   end
 
@@ -151,6 +145,60 @@ class Map
   def nearest_own_unfull_planet(entity)
     own_planets.select(&:unwill_full?)
       .min{ |one, other| entity.calculate_distance_between(one) <=> entity.calculate_distance_between(other) }
+  end
+
+  def enemy_haste?(distance=Game::Constants::HASTE_DISTANCE)
+    enemy_ships.size == 3 && 
+      enemy_ships.all? { |enemy_ship| me.ships.all? { |ship| ship.calculate_distance_between(enemy_ship) <= distance } }
+  end
+
+  # A strategy for defence enemy haste strategy
+  def defence_haste_strategy
+    command_queue = []
+    ships = me.ships
+    enemies = enemy_ships
+
+    if ships.all?(&:undocked?)
+      command_queue <<  if ships_assembled?(ships)
+                          ships.map{ |ship| ship.want_attack_enemy(self, enemies.first, Game::Constants::MAX_SPEED * 0.9) }
+                        else
+                          position = assemble_point(ships)
+                          ships.map{ |ship| ship.aggregate(self, position) }
+                        end
+    else
+      docked_ships = me.docked_ships
+      ship = if docked_ships.present?
+               command_queue += docked_ships.map(&:undock)
+               docked_ships.sample
+             else
+               me.ships.sample
+             end
+      position = Position.new(ship.x, ship.y)
+      me.idle_ships.each do |ship|
+        command_queue << ship.aggregate(self, position)
+      end
+    end
+
+    command_queue
+  end
+
+  def ships_assembled?(ships)
+    sample_ship = ships.sample
+    ships.all? do |ship|
+      ship.calculate_distance_between(sample_ship) <= Game::Constants::MAX_FRIEND_DISTANCE + 3
+    end
+  end
+
+  def assemble_point(ships)
+    x = ships.map(&:x).reduce(:+) / ships.size
+    y = ships.map(&:y).reduce(:+) / ships.size
+    Position.new x, y
+  end
+
+  def select_point(entity, enemy)
+    x = entity.x > enemy.x ? 7 : -7
+    y = entity.y > enemy.y ? 7 : -7
+    Position.new entity.x + x, entity.y + y
   end
 
   private

@@ -23,6 +23,7 @@ class Entity
   # target: The target to get distance to. Responds to x & y.
   # return: distance (float)
   def calculate_distance_between(target)
+    return nil if target.nil?
     Math.sqrt((target.x - x)**2 + (target.y - y)**2)
   end
 
@@ -48,7 +49,7 @@ class Entity
   # return: The closest point's coordinates (Position)
   def closest_point_to(target, min_distance=3)
     angle_rad = target.calculate_rad_angle_between(self)
-    radius = target.radius + min_distance
+    radius = min_distance + target.radius
     x = target.x + radius * Math.cos(angle_rad)
     y = target.y + radius * Math.sin(angle_rad)
 
@@ -58,6 +59,10 @@ class Entity
   # @abstract method - specific to the subclass
   # def link(players, planets)
   # end
+
+  def nearly?(other)
+    calculate_distance_between(other) <= 4
+  end
 
   def to_s
     "Entity #{self.class.name} id: #{id} x: #{x}, y: #{y}, radius: #{radius}"

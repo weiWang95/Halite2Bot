@@ -94,13 +94,13 @@ class Ship < Entity
     end
   end
 
-  def want_attack_enemy(map, enemy_ship)
+  def want_attack_enemy(map, enemy_ship, speed=Game::Constants::MAX_SPEED)
     keep_busy
     attack_receiver(enemy_ship)
     enemy_ship.attacker(self)
     if undocked?
       closest = closest_point_to(enemy_ship)
-      navigate(closest, map, Game::Constants::MAX_SPEED)
+      navigate(closest, map, speed)
     else
       undock
     end
@@ -122,9 +122,11 @@ class Ship < Entity
     @attacker.blank?
   end
 
-  def aggregate(map, position)
+  def aggregate(map, position, speed=Game::Constants::MAX_SPEED*0.8)
     keep_busy
-    navigate(position, map, Game::Constants::MAX_SPEED)
+    return if nearly? position
+    point = position.closest_point_to(self, 2)
+    navigate(point, map, speed)
   end
 
   # Move a ship to a specific target position (Entity).

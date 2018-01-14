@@ -21,8 +21,8 @@ class Game
     WEAPON_DAMAGE = 64
     #: Radius in which explosions affect other entities
     EXPLOSION_RADIUS = 10.0
-    #: Distance from the edge of the planet at which ships can try to dock
-    DOCK_RADIUS = 4.0
+    #: Distance from the edge of the planet at which ships can try to dock, default: 4.0
+    DOCK_RADIUS = 3.5
     #: Number of turns it takes to dock a ship
     DOCK_TURNS = 5
     #: Number of production units per turn contributed by each docked ship
@@ -32,11 +32,15 @@ class Game
 
     ATTACK_RANGE = 5
 
-    MAX_ALLOW_WANT_DOCK_DISTANCE = 50
+    MAX_ALLOW_WANT_DOCK_DISTANCE = 80
+
+    HASTE_DISTANCE = 80
     # cordon range
-    CORDON_DISTANCE = 20
+    CORDON_DISTANCE = 30
     
-    DEFENCE_DISTANCE = 40
+    DEFENCE_DISTANCE = 35
+
+    MAX_FRIEND_DISTANCE = 4
   end
 
   attr_reader :name, :logger, :map

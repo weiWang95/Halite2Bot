@@ -15,80 +15,79 @@ require 'game'
 
 # Here we define the bot's name as Opportunity and initialize the game, including
 # communication with the Halite engine.
-game = Game.new("newVersion")
+version_name = "V9"
+game = Game.new(version_name)
 # We print our start message to the logs
-game.logger.info("Starting my Opportunity bot!")
+game.logger.info("Starting my #{version_name} bot!")
+
+haste_strategy = false
 
 MyLog = game.logger
-
 while true
-  # TURN START
-  # Update the map for the new turn and get the latest version
-  game.update_map
-  map = game.map
-  me = map.me
+  begin
+    # TURN START
+    # Update the map for the new turn and get the latest version
+    game.update_map
+    map = game.map
+    me = map.me
 
-  # Here we define the set of commands to be sent to the Halite engine at the
-  # end of the turn
-  command_queue = []
+    # Here we define the set of commands to be sent to the Halite engine at the
+    # end of the turn
+    command_queue = []
 
-  # check own planet safety
-  if map.enemy_haste?
-    enemy_ships = map.enemy_ships
-    if me.ships.all?(&:undocked?)
-      me.ships.each do |ship|
-        command_queue << ship.want_attack_enemy(map, enemy_ships.first)
+    # check own planet safety
+    if map.enemy_haste? || haste_strategy
+      haste_strategy = true
+      command_queue += map.defence_haste_strategy
+    end
+
+    # planet defence
+    map.own_planets.each do |planet|
+      enemy_ships = map.dangerous_enemy_ships(planet)
+      next if enemy_ships.blank?
+
+      defence_ships = map.can_defence_ships(planet)
+      if defence_ships.present?
+        defence_ships[0, enemy_ships.size].each_with_index do |ship, index|
+          command_queue << ship.want_attack_enemy(map, enemy_ships[index])
+        end
+        next
       end
-    else
-      docked_ships = me.docked_ships
-      ship = if docked_ships.present?
-               command_queue += docked_ships.map(&:undock)
-               docked_ships.sample
-             else
-               me.ships.sample
-             end
-      position = Position.new(ship.x, ship.y)
-      me.idle_ships.each do |ship|
-        command_queue << ship.aggregate(position, map)
+    end
+
+    # For each idle ship we control
+    me.idle_ships.each do |ship|
+
+      unowned_planet = map.nearest_unowned_planet(ship)
+      unfulled_planet = map.nearest_own_unfull_planet(ship)
+
+      if unowned_planet && 
+          ship.calculate_distance_between(unowned_planet) <= Game::Constants::MAX_ALLOW_WANT_DOCK_DISTANCE &&
+          (
+            unfulled_planet.nil? || 
+            ship.calculate_distance_between(unowned_planet) < 
+              ship.calculate_distance_between(unfulled_planet) * (3 + unowned_planet.spots_size)
+          )
+        command_queue << ship.want_dock_planet(map, unowned_planet)
+        next
+      end
+
+      if unfulled_planet
+        command_queue << ship.want_dock_planet(map, unfulled_planet)
+        next
+      end
+
+      enemy_ship = map.nearest_enemy_docked_ship(ship) || map.nearest_enemy_ship(ship)
+      if enemy_ship
+        command_queue << ship.want_attack_enemy(map, enemy_ship)
+        next
       end
     end
+
+    game.send_command_queue(command_queue)
+
+  rescue Exception => e
+    MyLog.info e.message
+    e.backtrace.each{ |m| MyLog.info m }
   end
-
-  # planet defence
-  map.own_planets.each do |planet|
-    enemy_ships = map.dangerous_enemy_ships(planet)
-    next if enemy_ships.blank?
-
-    defence_ships = map.can_defence_ships(planet)
-    if defence_ships.present?
-      defence_ships[0, enemy_ships.size].each do |ship|
-        command_queue << ship.want_attack_enemy(map, enemy_ships.first)
-      end
-      next
-    end
-  end
-
-  # For each idle ship we control
-  me.idle_ships.each do |ship|
-
-    unowned_planet = map.nearest_unowned_planet(ship)
-    if unowned_planet && ship.calculate_distance_between(unowned_planet) <= Game::Constants::MAX_ALLOW_WANT_DOCK_DISTANCE
-      command_queue << ship.want_dock_planet(map, unowned_planet)
-      next
-    end
-
-    unfulled_planet = map.nearest_own_unfull_planet(ship)
-    if unfulled_planet
-      command_queue << ship.want_dock_planet(map, unfulled_planet)
-      next
-    end
-
-    enemy_ship = map.nearest_enemy_docked_ship(ship) || map.nearest_enemy_ship(ship)
-    if enemy_ship
-      command_queue << ship.want_attack_enemy(map, enemy_ship)
-      next
-    end
-  end
-
-  game.send_command_queue(command_queue)
 end
