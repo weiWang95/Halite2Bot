@@ -41,6 +41,10 @@ class Map
     @planets.values
   end
 
+  def can_dock_planets
+    @planets.values.select { |planet| planet.unowned? || (planet.owner_is(me) && planet.unfull?) }
+  end
+
   def unowned_planets
     @planets.values.select(&:unowned?)
   end
@@ -90,11 +94,23 @@ class Map
   # Fetch all entities in relationship to the entered entity keyed by distance
   # entity: the source entity to find distances from
   # return: Hash containing all entities with their designated distances
-  def nearby_entities_by_distance(entity)
+  def nearby_entities_by_distance(entity, include_planet: true, include_ship: true, include_players: nil, need_idle: true)
+    include_players ||= players
+
+    entitys = []
+    if include_planet
+      include_player_ids = include_players.map(&:id)
+      entitys += planets.values.select { |plant| plant.unowned? || include_player_ids.include?(planet.owner.id) }
+    end
+
+    if include_ship
+      entitys += include_players.map(&(need_idle ? :idle_ships : :ships)).flatten
+    end
+
     # any new key is initialized with an empty array
     result = Hash.new { |h, k| h[k] = [] }
 
-    (ships + planets).each do |foreign_entity|
+    entitys.each do |foreign_entity|
       next if entity == foreign_entity
       result[entity.calculate_distance_between(foreign_entity)] << foreign_entity
     end
@@ -124,31 +140,31 @@ class Map
 
   def nearest_unowned_planet(entity)
     unowned_planets.select(&:unwill_full?).min do |one, other|
-      entity.calculate_distance_between(one) * 5 / one.docking_spots <=> entity.calculate_distance_between(other) * 5 / one.docking_spots 
+      entity.calculate_distance_between(one) * 5 / one.docking_spots <=> entity.calculate_distance_between(other) * 5 / one.docking_spots
     end
   end
 
   def nearest_enemy_planet(entity)
-    enemy_planets.min{ |one, other| entity.calculate_distance_between(one) <=> entity.calculate_distance_between(other) }
+    enemy_planets.min_distance(entity)# { |one, other| entity.calculate_distance_between(one) <=> entity.calculate_distance_between(other) }
   end
 
   def nearest_enemy_ship(entity)
     enemy_ships.select(&:unattacked?)
-      .min{ |one, other| entity.calculate_distance_between(one) <=> entity.calculate_distance_between(other) }
+      .min_distance(entity)#{ |one, other| entity.calculate_distance_between(one) <=> entity.calculate_distance_between(other) }
   end
 
   def nearest_enemy_docked_ship(entity)
     enemy_ships.select(&:dock_status?)
-      .min{ |one, other| entity.calculate_distance_between(one) <=> entity.calculate_distance_between(other) }
+      .min_distance(entity)#{ |one, other| entity.calculate_distance_between(one) <=> entity.calculate_distance_between(other) }
   end
 
   def nearest_own_unfull_planet(entity)
     own_planets.select(&:unwill_full?)
-      .min{ |one, other| entity.calculate_distance_between(one) <=> entity.calculate_distance_between(other) }
+      .min_distance(entity)#{ |one, other| entity.calculate_distance_between(one) <=> entity.calculate_distance_between(other) }
   end
 
   def enemy_haste?(distance=Game::Constants::HASTE_DISTANCE)
-    enemy_ships.size == 3 && 
+    enemy_ships.size == 3 &&
       enemy_ships.all? { |enemy_ship| me.ships.all? { |ship| ship.calculate_distance_between(enemy_ship) <= distance } }
   end
 

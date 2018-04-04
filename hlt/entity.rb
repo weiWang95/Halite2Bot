@@ -19,6 +19,10 @@ class Entity
     @id = id
   end
 
+  def compare(other, target)
+    calculate_distance_between(target) <=> other.calculate_distance_between(target)
+  end
+
   # Calculates the distance between this object and the target.
   # target: The target to get distance to. Responds to x & y.
   # return: distance (float)

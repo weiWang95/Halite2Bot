@@ -155,7 +155,7 @@ class Ship < Entity
   #         movement is not possible within max_corrections degrees.
   def navigate(target, map, speed, avoid_obstacles: true, max_corrections: 90,
               angular_step: 1, ignore_ships: false, ignore_planets: false)
-    return if max_corrections <= 0
+    # return if max_corrections <= 0
     distance = calculate_distance_between(target)
     angle = calculate_deg_angle_between(target)
 
@@ -163,18 +163,39 @@ class Ship < Entity
     ignore << :ships if ignore_ships
     ignore << :planets if ignore_planets
 
-    if avoid_obstacles && map.obstacles_between(self, target, ignore).length > 0
+    positive_angle = new_navigate(target, distance, map, ignore, 2)
+    reverse_angle = new_navigate(target, distance, map, ignore, -2)
+    return if positive_angle.nil? && reverse_angle.nil?
+
+    # if avoid_obstacles && map.obstacles_between(self, target, ignore).length > 0
+    #   delta_radians = (angle + angular_step)/180.0 * Math::PI
+    #   new_target_dx = Math.cos(delta_radians) * distance
+    #   new_target_dy = Math.sin(delta_radians) * distance
+    #   new_target = Position.new(x + new_target_dx, y + new_target_dy)
+    #   return navigate(new_target, map, speed,
+    #                   avoid_obstacles: true,
+    #                   max_corrections: max_corrections-1,
+    #                   angular_step: angular_step)
+    # end
+
+    speed = distance >= speed ? speed : distance
+    angle = (angle - positive_angle).abs < (angle - reverse_angle).abs ? positive_angle : reverse_angle
+    thrust(speed, angle)
+  end
+
+  def new_navigate(target, distance, map, ignore, angular_step, max_corrections=90)
+    return if max_corrections <= 0
+    angle = calculate_deg_angle_between(target)
+
+    if map.obstacles_between(self, target, ignore).length > 0
       delta_radians = (angle + angular_step)/180.0 * Math::PI
       new_target_dx = Math.cos(delta_radians) * distance
       new_target_dy = Math.sin(delta_radians) * distance
       new_target = Position.new(x + new_target_dx, y + new_target_dy)
-      return navigate(new_target, map, speed,
-                      avoid_obstacles: true,
-                      max_corrections: max_corrections-1,
-                      angular_step: angular_step)
+      return new_navigate(target, distance, map, ignore, angular_step, max_corrections - 1)
     end
-    speed = distance >= speed ? speed : distance
-    thrust(speed, angle)
+
+    angle
   end
 
   # Uses the IDs of players and planets and populates the owner and planet params

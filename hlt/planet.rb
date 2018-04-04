@@ -50,6 +50,10 @@ class Planet < Entity
     owner.nil?
   end
 
+  def owner_is(player)
+    owner && owner.id == player.id
+  end
+
   # Determines if the planet is fully occupied (all docking slots are full)
   # return: true if full, false if not
   def full?

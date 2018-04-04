@@ -21,6 +21,7 @@ game = Game.new(version_name)
 game.logger.info("Starting my #{version_name} bot!")
 
 haste_strategy = false
+first_ship_id = nil
 
 MyLog = game.logger
 while true
@@ -35,13 +36,7 @@ while true
     # end of the turn
     command_queue = []
 
-    # check own planet safety
-    if map.enemy_haste? || haste_strategy
-      haste_strategy = true
-      command_queue += map.defence_haste_strategy
-    end
-
-    # planet defence
+    # defence
     map.own_planets.each do |planet|
       enemy_ships = map.dangerous_enemy_ships(planet)
       next if enemy_ships.blank?
@@ -55,39 +50,108 @@ while true
       end
     end
 
-    # For each idle ship we control
-    me.idle_ships.each do |ship|
+    # occupy
+    if map.own_planets.size > 5
+      map.can_dock_planets.each do |planet|
+        distance_map = map.nearby_entities_by_distance(planet, include_planet: false, include_players: [me])
 
-      unowned_planet = map.nearest_unowned_planet(ship)
-      unfulled_planet = map.nearest_own_unfull_planet(ship)
+        distance_map.keys.sort!.each do |key|
+          distance_map[key].each do |ship|
+            break if planet.spots_size == 0
 
-      if unowned_planet && 
-          ship.calculate_distance_between(unowned_planet) <= Game::Constants::MAX_ALLOW_WANT_DOCK_DISTANCE &&
-          (
-            unfulled_planet.nil? || 
-            ship.calculate_distance_between(unowned_planet) < 
-              ship.calculate_distance_between(unfulled_planet) * (3 + unowned_planet.spots_size)
-          )
-        command_queue << ship.want_dock_planet(map, unowned_planet)
-        next
+            command_queue << ship.want_dock_planet(map, planet)
+          end
+          break if planet.spots_size == 0
+        end
       end
 
-      if unfulled_planet
-        command_queue << ship.want_dock_planet(map, unfulled_planet)
-        next
+      me.idle_ships.each do |ship|
+        enemy_ship = map.nearest_enemy_docked_ship(ship) || map.nearest_enemy_ship(ship)
+        if enemy_ship
+          command_queue << ship.want_attack_enemy(map, enemy_ship)
+          next
+        end
       end
+    else
+      me.idle_ships.each do |ship|
 
-      enemy_ship = map.nearest_enemy_docked_ship(ship) || map.nearest_enemy_ship(ship)
-      if enemy_ship
-        command_queue << ship.want_attack_enemy(map, enemy_ship)
-        next
+        unowned_planet = map.nearest_unowned_planet(ship)
+        unfulled_planet = map.nearest_own_unfull_planet(ship)
+
+        if unowned_planet &&
+            ship.calculate_distance_between(unowned_planet) <= Game::Constants::MAX_ALLOW_WANT_DOCK_DISTANCE
+          command_queue << ship.want_dock_planet(map, unowned_planet)
+          next
+        end
+
+        if unfulled_planet
+          command_queue << ship.want_dock_planet(map, unfulled_planet)
+          next
+        end
+
+        enemy_ship = map.nearest_enemy_docked_ship(ship) || map.nearest_enemy_ship(ship)
+        if enemy_ship
+          command_queue << ship.want_attack_enemy(map, enemy_ship)
+          next
+        end
       end
     end
+
+    # # check own planet safety
+    # if map.enemy_haste? || haste_strategy
+    #   haste_strategy = true
+    #   command_queue += map.defence_haste_strategy
+    # end
+
+    # # planet defence
+    # map.own_planets.each do |planet|
+    #   enemy_ships = map.dangerous_enemy_ships(planet)
+    #   next if enemy_ships.blank?
+
+    #   defence_ships = map.can_defence_ships(planet)
+    #   if defence_ships.present?
+    #     defence_ships[0, enemy_ships.size].each_with_index do |ship, index|
+    #       command_queue << ship.want_attack_enemy(map, enemy_ships[index])
+    #     end
+    #     next
+    #   end
+    # end
+
+    # # For each idle ship we control
+    # me.idle_ships.each do |ship|
+
+    #   unowned_planet = map.nearest_unowned_planet(ship)
+    #   unfulled_planet = map.nearest_own_unfull_planet(ship)
+
+    #   if unowned_planet &&
+    #       ship.calculate_distance_between(unowned_planet) <= Game::Constants::MAX_ALLOW_WANT_DOCK_DISTANCE &&
+    #       (
+    #         unfulled_planet.nil? ||
+    #         ship.calculate_distance_between(unowned_planet) <
+    #           ship.calculate_distance_between(unfulled_planet) * (3 + unowned_planet.spots_size)
+    #       )
+    #     command_queue << ship.want_dock_planet(map, unowned_planet)
+    #     next
+    #   end
+
+    #   if unfulled_planet
+    #     command_queue << ship.want_dock_planet(map, unfulled_planet)
+    #     next
+    #   end
+
+    #   enemy_ship = map.nearest_enemy_docked_ship(ship) || map.nearest_enemy_ship(ship)
+    #   if enemy_ship
+    #     command_queue << ship.want_attack_enemy(map, enemy_ship)
+    #     next
+    #   end
+    # end
 
     game.send_command_queue(command_queue)
 
   rescue Exception => e
     MyLog.info e.message
     e.backtrace.each{ |m| MyLog.info m }
+
+    # game.send_command_queue(command_queue)
   end
 end
